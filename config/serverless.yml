@@ -1,0 +1,69 @@
+# Serverless Defaults
+
+# Custom
+custom:
+  serviceName: ${file(../package.json):name}
+  serviceNameWithStageSuffix: ${self:custom.serviceName}-${self:provider.stage}
+  version: ${file(../scripts/build.js):getVersion}
+  debug: ${opt:debug, 'false'}
+  prune:
+    automatic: true
+    includeLayers: true
+    number: 5
+  webpack:
+    webpackConfig: ${opt:webpack, '../webpack.config.js'}
+  apiGatewayMetrics:
+    dev: false
+    prod: true
+  provisionedConcurrency:
+    prod: 1
+  basePath:
+    dev: 'v1d'
+    prod: 'v1'
+  cors:
+    origins:
+      - '*'
+    headers:
+      - Authorization
+      - Content-Type
+      - Fidel-Account
+      - Fidel-User
+      - Fidel-Key
+      - Fidel-Live
+      - Fidel-Version
+
+# Provider
+provider:
+  runtime: nodejs14.x
+  region: ${opt:region, 'eu-west-1'}
+  stage: ${opt:stage, 'dev'}
+  architecture: x86_64 # or arm64
+  memorySize: 512
+  timeout: 29
+  iam:
+    role:
+      statements: ${file(../config/roles.yml)}
+  versionFunctions: false
+  logs:
+    restApi:
+      format: '{ "requestId": "$context.requestId", "ip": "$context.identity.sourceIp", "domainName": "$context.domainName", "errorMessage": "$context.error.messageString", "requestTime": "$context.requestTime", "httpMethod": "$context.httpMethod", "resourcePath": "$context.resourcePath", "status": "$context.status", "responseOverrideStatus": "$context.responseOverride.status", "wafResponseCode": "$context.wafResponseCode", "protocol": "$context.protocol", "responseLength": "$context.responseLength" }'
+    websocket: true
+  logRetentionInDays: 180
+  tracing:
+    apiGateway: true
+    lambda: true
+  environment:
+    stage: ${self:provider.stage}
+    version: ${self:custom.version}
+    region: ${self:provider.region}
+  tags:
+    stage: ${self:provider.stage}
+    region: ${self:provider.region}
+    service: ${self:service}
+  deploymentPrefix: ${self:custom.serviceNameWithStageSuffix}
+  apiGateway:
+    metrics: ${self:custom.apiGatewayMetrics.${self:provider.stage}}
+
+# Package
+package:
+  individually: true

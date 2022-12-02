@@ -1,0 +1,24 @@
+- Effect: Allow
+  Action:
+    - sns:Publish
+  Resource:
+    - ${self:custom.environment.alertTopicArn}
+
+- Effect: Allow
+  Action:
+    - lambda:InvokeFunction
+  Resource: arn:aws:lambda:${self:provider.region}:*:function:${self:service}*
+
+- Effect: Allow
+  Action:
+    - dynamodb:GetItem
+    - dynamodb:PutItem
+    - dynamodb:Query
+    - dynamodb:UpdateItem
+  Resource:
+    - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.stage}-fidel-account
+    - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.stage}-fidel-credential
+    - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.stage}-fidel-identity
+    - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.stage}-fidel-program
+    - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.stage}-fidel-user
+    - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.stage}-fidel-version

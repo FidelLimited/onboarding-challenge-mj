@@ -1,0 +1,108 @@
+# Service
+service: ${self:custom.serviceName}
+
+# Plugins
+plugins:
+  - serverless-webpack
+  - serverless-offline
+  - serverless-prune-plugin
+
+# Custom
+custom:
+  serviceName: ${file(../config/serverless.yml):custom.serviceName}
+  serviceNameWithStageSuffix: ${file(../config/serverless.yml):custom.serviceNameWithStageSuffix}
+  apiGatewayMetrics: ${file(../config/serverless.yml):custom.apiGatewayMetrics}
+  version: ${file(../config/serverless.yml):custom.version}
+  prune: ${file(../config/serverless.yml):custom.prune}
+  webpack: ${file(../config/serverless.yml):custom.webpack}
+  environment:
+    # Example Output variable deployed with CloudFormation config/resources.yml
+    alertTopicArn: ${cf:${self:custom.serviceNameWithStageSuffix}-resources.alertTopicARN}
+    debug: ${file(../config/serverless.yml):custom.debug}
+    example: ${cf:${self:custom.serviceNameWithStageSuffix}-resources.ExampleParam}
+    stage: ${self:provider.stage}
+
+# Provider
+provider:
+  name: aws
+  runtime: ${file(../config/serverless.yml):provider.runtime}
+  region: ${file(../config/serverless.yml):provider.region}
+  stage: ${file(../config/serverless.yml):provider.stage}
+  architecture: ${file(../config/serverless.yml):provider.architecture}
+  memorySize: ${file(../config/serverless.yml):provider.memorySize}
+  timeout: ${file(../config/serverless.yml):provider.timeout}
+  iam: ${file(../config/serverless.yml):provider.iam}
+  versionFunctions: ${file(../config/serverless.yml):provider.versionFunctions}
+  logs: ${file(../config/serverless.yml):provider.logs}
+  logRetentionInDays: ${file(../config/serverless.yml):provider.logRetentionInDays}
+  tracing: ${file(../config/serverless.yml):provider.tracing}
+  environment: ${file(../config/serverless.yml):provider.environment}
+  tags: ${file(../config/serverless.yml):provider.tags}
+  deploymentPrefix: ${file(../config/serverless.yml):provider.deploymentPrefix}
+  apiGateway: ${file(../config/serverless.yml):provider.apiGateway}
+
+# Package
+package:
+  individually: ${file(../config/serverless.yml):package.individually}
+
+# Functions
+functions:
+  # Events
+  replyGoodbye:
+    name: ${self:custom.serviceNameWithStageSuffix}-reply-goodbye
+    description: 'Internal: Reply Goodbye'
+    handler: internal/reply-goodbye/index.goodbye
+    environment: ${self:custom.environment}
+    # Default value for the lambdas is 29s which means this value should override
+    # if the lambda has different timeout requirements
+    timeout: 60
+
+  # Routes
+  getHelloWorld:
+    name: ${self:custom.serviceNameWithStageSuffix}-get-hello-world
+    description: 'Routes: Get Hello World'
+    handler: routes/get-hello-world/index.hello
+    environment: ${self:custom.environment}
+    provisionedConcurrency: ${file(../config/serverless.yml):custom.provisionedConcurrency.${self:provider.stage}, null}
+    events:
+      - http:
+          method: post
+          path: ${file(../config/serverless.yml):custom.basePath.${self:provider.stage}}/hello
+          cors: ${file(../config/serverless.yml):custom.cors}
+      # Default rule for handling the Method Not Allowed error
+      # This error will be issued for all methods expect the ones that are specified
+      # This rule should be added by resource (or each different endpoint)
+      - http:
+          path: hello
+          method: any
+          integration: mock
+          request:
+            template:
+              application/json: '{"statusCode": 405}'
+          response:
+            template: $input.path('$')
+            statusCodes:
+              405:
+                pattern: ''
+  # Default rule for handling the Resource Not Found error
+  # It should be one of this rule by microservice
+  notFoundProxyRoute:
+    name: ${self:custom.serviceNameWithStageSuffix}-resource-not-found
+    description: 'Routes: Default route for not found resource'
+    # Can put here any lambda since it will be relaced by the mock (see integration below)
+    # And serverless requires a handler and simplifies the all solution
+    handler: routes/get-hello-world/index.hello
+    events:
+      - http:
+          path: /{proxy+}
+          method: any
+          cors: ${file(../config/serverless.yml):custom.cors}
+          integration: mock
+          request:
+            template:
+              application/json: '{"statusCode": 404}'
+          response:
+            template: $input.path('$')
+            statusCodes:
+              404:
+                pattern: ''

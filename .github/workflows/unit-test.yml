@@ -1,0 +1,58 @@
+name: Unit Test
+
+on:
+  pull_request:
+    branches: [develop, master, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials PROD
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_FOR_GITHUB_PROD }}
+          aws-region: ${{ secrets.AWS_REGION_FOR_ROLE_FOR_GITHUB }}
+          role-session-name: OIDCSession
+
+      - name: Configure AWS Credentials DEV
+        uses: aws-actions/configure-aws-credentials@v1
+        if: github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main'
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_FOR_GITHUB_DEV }}
+          aws-region: ${{ secrets.AWS_REGION_FOR_ROLE_FOR_GITHUB }}
+          role-session-name: OIDCSession
+
+      - uses: aws-actions/aws-secretsmanager-get-secrets@v1
+        with:
+          secret-ids: NPM_TOKEN, npm-token-ro
+
+      - name: Use Node.js 14.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.x
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: dependency-cache-{{ hashFiles('package.json') }}
+          restore-keys: |
+            dependency-cache-
+
+      - run: NODE_AUTH_TOKEN=${NPM_TOKEN} npm ci
+
+      - run: npm run check:code
+
+      - run: npm run test:coverage

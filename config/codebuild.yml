@@ -1,0 +1,346 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Pipeline using CodePipeline and CodeBuild for continuous delivery of service-starter
+
+Parameters:
+  StageParam:
+    Type: String
+    Description: Stage alias to append to CloudFormation stack and add as CodeBuild variable
+    MinLength: 1
+    Default: 'dev'
+    AllowedPattern: ^dev|prod$
+  GitHubBranch:
+    Type: String
+    Description: GitHub Branch Name
+    MinLength: 1
+    Default: 'master'
+  GitHubAutoDetectChanges:
+    Type: String
+    MinLength: 1
+    Default: true
+    AllowedValues: [false, true]
+    Description: Enable automatic detection of changes in branch
+  BuildType:
+    Type: String
+    MinLength: 1
+    Default: 'LINUX_CONTAINER'
+    Description: Build Container Type
+  BuildComputeType:
+    Type: String
+    MinLength: 1
+    Default: 'BUILD_GENERAL1_SMALL'
+    Description: Build Compute Type
+  BuildImage:
+    Type: String
+    MinLength: 1
+    Default: 'aws/codebuild/standard:5.0'
+    Description: Build Image
+  AlertTopicARNParam:
+    Description: SNS Alert Topic ARN (use OWN to create a new topic)
+    Type: String
+    MinLength: 1
+    AllowedPattern: ^arn:aws:sns:[a-z]{2}-[a-z]+-\d{1}:\d{12}:[a-zA-Z0-9-_]+$|^OWN$
+    Default: 'OWN'
+  DefaultAlertEmailParam:
+    Description: Default email subscription to the SNS alert topic (prod only)
+    Type: String
+    MinLength: 1
+    AllowedPattern: ^(\w+([.-]?\w+)*(\+\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+)$
+  Monitoring:
+    Description: Enable monitoring for the service
+    Type: String
+    MinLength: 1
+    Default: false
+    AllowedValues: [false, true]
+
+Mappings:
+  BuildServiceMap:
+    Service:
+      Name: service-starter
+    Github:
+      Repo: service-starter
+      User: FidelLimited
+
+Conditions:
+  isProd: !Equals [!Ref StageParam, prod]
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'General Configuration'
+        Parameters:
+          - StageParam
+      - Label:
+          default: 'GitHub/NPM Configuration'
+        Parameters:
+          - GitHubBranch
+          - GitHubAutoDetectChanges
+      - Label:
+          default: 'Build Configuration'
+        Parameters:
+          - BuildType
+          - BuildComputeType
+          - BuildImage
+      - Label:
+          default: 'Monitoring Configuration'
+        Parameters:
+          - AlertTopicARNParam
+          - DefaultAlertEmailParam
+          - Monitoring
+    ParameterLabels:
+      StageParam:
+        default: Stage alias to append to CloudFormation stack and add as CodeBuild variable
+      BuildType:
+        default: Build Container Type
+      BuildComputeType:
+        default: Build Compute Type
+      BuildImage:
+        default: Build Image
+
+Resources:
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: '/'
+      Policies:
+        - PolicyName: codebuild-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:*
+                  - ssm:PutParameter
+                  - ssm:LabelParameterVersion
+                  - ssm:DeleteParameter
+                  - ssm:DescribeParameters
+                  - ssm:GetParameterHistory
+                  - ssm:GetParametersByPath
+                  - ssm:GetParameters
+                  - ssm:GetParameter
+                  - ssm:DeleteParameters
+                  - ssm:AddTagsToResource
+                  - ssm:RemoveTagsFromResource
+                  - ssm:ListTagsForResource
+                  - xray:*
+                  - sns:*
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                  - lambda:*
+                  - dynamodb:*
+                  - cloudformation:*
+                  - codebuild:CreateProject
+                  - codebuild:UpdateProject
+                  - codebuild:DeleteProject
+                  - codepipeline:CreatePipeline
+                  - codepipeline:UpdatePipeline
+                  - codepipeline:GetPipeline
+                  - codepipeline:GetPipelineState
+                  - codepipeline:DeletePipeline
+                  - apigateway:*
+                  - iam:GetRole
+                  - iam:ListRoleTags
+                  - iam:DeleteGroup
+                  - iam:CreateRole
+                  - iam:AttachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:DetachGroupPolicy
+                  - iam:ListRolePolicies
+                  - iam:PutGroupPolicy
+                  - iam:ListPolicies
+                  - iam:GetRole
+                  - iam:GetPolicy
+                  - iam:DeleteRole
+                  - iam:UpdateRoleDescription
+                  - iam:GetGroupPolicy
+                  - iam:GetRolePolicy
+                  - iam:DeletePolicy
+                  - iam:GetGroup
+                  - iam:PassRole
+                  - iam:DeleteRolePolicy
+                  - iam:ListAttachedUserPolicies
+                  - iam:ListAttachedGroupPolicies
+                  - iam:ListGroupPolicies
+                  - iam:ListRoles
+                  - iam:CreatePolicy
+                  - iam:AttachGroupPolicy
+                  - iam:UpdateRole
+                  - iam:ListGroups
+                  - iam:DeleteGroupPolicy
+                  - logs:*
+                  - s3:*
+                  - ec2:*
+                  - events:*
+                  - states:*
+                Resource: '*'
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource:
+                  Fn::ImportValue: !Sub ${StageParam}-kms-key-global-secrets
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  Fn::ImportValue: !Sub ${StageParam}-npm-token-ro
+            Version: '2012-10-17'
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: '/'
+      Policies:
+        - PolicyName: codepipeline-service
+          PolicyDocument:
+            Statement:
+              - Action:
+                  - codestar-connections:UseConnection
+                Resource:
+                  Fn::ImportValue: github-codestar-connection-arn
+                Effect: Allow
+              - Action:
+                  - codebuild:*
+                Resource: '*'
+                Effect: Allow
+              - Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                Resource: '*'
+                Effect: Allow
+              - Action:
+                  - s3:PutObject
+                Resource:
+                  - arn:aws:s3:::codepipeline*
+                Effect: Allow
+              - Action:
+                  - s3:*
+                  - cloudformation:*
+                  - iam:PassRole
+                Resource: '*'
+                Effect: Allow
+            Version: '2012-10-17'
+  PipelineBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+  CodeBuildDeploySite:
+    Type: AWS::CodeBuild::Project
+    DependsOn: CodeBuildRole
+    Properties:
+      Name: !Sub ${AWS::StackName}
+      Description: Deploy Service
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: !Ref BuildType
+        ComputeType: !Ref BuildComputeType
+        Image: !Sub ${BuildImage}
+        EnvironmentVariables:
+          - Name: STAGE
+            Value: !Sub ${StageParam}
+          - Name: SERVICE_NAME
+            Value: !FindInMap [BuildServiceMap, Service, Name]
+          - Name: SLS_DEBUG
+            Value: true
+          - Name: NPM_SECRET_ARN
+            Value:
+              Fn::ImportValue: !Sub ${StageParam}-npm-token-ro
+          - Name: ALERT_TOPIC_ARN_PARAM
+            Value: !Sub ${AlertTopicARNParam}
+          - Name: DEFAULT_ALERT_EMAIL
+            Value: !Sub ${DefaultAlertEmailParam}
+          - Name: MONITORING
+            Value: !Sub ${Monitoring}
+          - Name: AWS_ACCOUNT_ID
+            Value:
+              Ref: AWS::AccountId
+          - Name: region
+            Value:
+              Ref: AWS::Region
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: config/buildspec.yml
+      TimeoutInMinutes: 60
+      EncryptionKey: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/s3
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Stages:
+        - Name: Source
+          Actions:
+            - InputArtifacts: []
+              Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: '1'
+                Provider: CodeStarSourceConnection
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ConnectionArn:
+                  Fn::ImportValue: github-codestar-connection-arn
+                FullRepositoryId: !Sub
+                  - '${User}/${Repo}'
+                  - User: !FindInMap [BuildServiceMap, Github, User]
+                    Repo: !FindInMap [BuildServiceMap, Github, Repo]
+                BranchName: !Ref GitHubBranch
+                DetectChanges: !Ref GitHubAutoDetectChanges
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: Artifact
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: DeployOutput
+              Configuration:
+                ProjectName: !Ref CodeBuildDeploySite
+              RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineBucket
+  CodebuildEvent:
+    Type: 'AWS::CodeStarNotifications::NotificationRule'
+    Condition: isProd
+    Properties:
+      Name: !Sub '${AWS::StackName}-${AWS::Region}-rule'
+      DetailType: FULL
+      Resource: !GetAtt CodeBuildDeploySite.Arn
+      EventTypeIds:
+        - codebuild-project-build-state-succeeded
+        - codebuild-project-build-state-failed
+        - codebuild-project-build-phase-success
+        - codebuild-project-build-phase-failure
+      Status: ENABLED
+      Targets:
+        - TargetType: SNS
+          TargetAddress: !ImportValue 'codepipeline-notifier-prod-topic-arn'
+
+Outputs:
+  PipelineUrl:
+    Value: !Sub https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${Pipeline}
+    Description: CodePipeline URL

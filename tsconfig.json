@@ -1,0 +1,3 @@
+{
+  "extends": "@fidel.uk/eslint-config/tsconfig.json"
+}

@@ -1,0 +1,7 @@
+{
+  "extends": "@fidel.uk/eslint-config/tsconfig.debug.json",
+  "compilerOptions": {
+    "outDir": "./out"
+  },
+  "exclude": ["node_modules", "out"]
+}

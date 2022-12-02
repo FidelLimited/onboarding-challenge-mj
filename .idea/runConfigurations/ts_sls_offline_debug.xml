@@ -1,0 +1,5 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="ts.sls.offline.debug" type="NodeJSConfigurationType" application-parameters="offline --no-timeout --webpack=../webpack.config.debug.js" path-to-js-file="$PROJECT_DIR$/node_modules/serverless/bin/serverless.js" working-dir="$PROJECT_DIR$/src">
+    <method v="2" />
+  </configuration>
+</component>

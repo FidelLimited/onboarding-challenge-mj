@@ -1,0 +1,35 @@
+# Package directories
+node_modules
+
+# Build or temporary outputs
+out/
+*.ignore.*
+
+# Serverless directories
+.serverless
+
+# Logs
+logs
+*.log
+npm-debug.log
+
+# IDE
+**/.idea/*
+!**/.idea/runConfigurations/
+.history
+
+# OS
+.DS_Store
+.tmp
+
+# Jest
+coverage
+
+# WarmUP
+_warmup
+
+# Webpack
+.webpack
+
+# Local configurations
+.nvmrc

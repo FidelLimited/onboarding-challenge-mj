@@ -1,0 +1,97 @@
+{
+  "name": "service-starter",
+  "description": "Service Starter",
+  "version": "4.7.3",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/FidelLimited/service-starter"
+  },
+  "bugs": {
+    "url": "https://github.com/FidelLimited/service-starter/issues"
+  },
+  "config": {
+    "maxMemory": 4096
+  },
+  "engines": {
+    "node": "14",
+    "npm": "6.14"
+  },
+  "scripts": {
+    "check:code": "npm run lint && tsc --noemit",
+    "check:engines": "node scripts/check-engines.js",
+    "check:monitoring": "node ./node_modules/@fidel.uk/service-monitoring-package/out/bin/validate",
+    "dependency:check": "npx npm-check-updates",
+    "dependency:update": "npx npm-check-updates -u && npm install",
+    "deploy": "npm run check:code && npm run sls -- deploy --verbose",
+    "deploy:resources": "node ./node_modules/@fidel.uk/aws-cf-ci/lib/bin",
+    "init:rename-service": "npx ts-node scripts/rename-service.ts",
+    "invoke": "npm run check:code && npm run sls -- invoke local",
+    "lint": "eslint \"**/*.ts\" \"**/*.js\"",
+    "lint:fix": "npm run lint -- --fix",
+    "package": "npm run check:code && npm run sls -- package",
+    "postinstall": "npm run check:engines",
+    "pre-push": "npm run check:engines && npm audit --audit-level=critical && npm run check:monitoring",
+    "prepare": "(is-ci || husky install)",
+    "remove": "cd src && sls remove",
+    "service:name": "npx -c 'echo \"$npm_package_name\"'",
+    "service:version": "npx -c 'echo \"$npm_package_version\"'",
+    "sls": "cd src && node --max-old-space-size=$npm_package_config_maxMemory ../node_modules/.bin/sls",
+    "start": "npm run check:code && npm run sls -- offline",
+    "test": "npm run test:unit",
+    "test:coverage": "npm run test:unit -- --coverage --coverageReporters html json lcov clover text text-summary",
+    "test:integration": "jest -w 2 --testMatch=\"**/__tests__/integration/**/?(*.)+(spec|test).[jt]s?(x)\"",
+    "test:nocache": "npm run test:unit -- --no-cache",
+    "test:unit": "jest -w 2",
+    "test:watch": "npm run test:unit -- --watch"
+  },
+  "devDependencies": {
+    "@fidel.uk/aws-cf-ci": "3.5.1",
+    "@fidel.uk/eslint-config": "2.5.0",
+    "@fidel.uk/service-monitoring-package": "0.0.8",
+    "@serverless/event-mocks": "1.1.0",
+    "@types/aws-lambda": "8.10.93",
+    "@types/glob": "7.2.0",
+    "@types/jest": "27.4.1",
+    "@types/node": "17.0.21",
+    "@typescript-eslint/eslint-plugin": "5.15.0",
+    "eslint": "8.11.0",
+    "eslint-config-prettier": "8.5.0",
+    "eslint-plugin-no-only-tests": "2.6.0",
+    "eslint-plugin-prettier": "4.0.0",
+    "eslint-plugin-sort-keys-fix": "1.1.2",
+    "glob": "8.0.3",
+    "husky": "7.0.4",
+    "import-sort-style-module": "6.0.0",
+    "is-ci": "3.0.1",
+    "jest": "27.5.1",
+    "lint-staged": "12.3.6",
+    "prettier": "2.6.0",
+    "prettier-plugin-import-sort": "0.0.7",
+    "serverless": "3.7.5",
+    "serverless-offline": "8.8.1",
+    "serverless-prune-plugin": "2.0.1",
+    "serverless-webpack": "5.6.1",
+    "ts-jest": "27.1.4",
+    "ts-loader": "9.2.8",
+    "typescript": "4.6.2",
+    "webpack": "5.74.0"
+  },
+  "dependencies": {
+    "@fidel.uk/api-identity": "3.3.0",
+    "@fidel.uk/api-transform-output": "^3.0.0",
+    "@fidel.uk/aws-sdk": "1.2.0",
+    "@fidel.uk/credential": "4.2.2",
+    "@fidel.uk/handler": "5.8.0",
+    "@fidel.uk/log": "2.5.0",
+    "@fidel.uk/types": "16.3.0",
+    "aws-lambda": "1.0.7"
+  },
+  "lint-staged": {
+    "*.{js,ts}": [
+      "eslint --fix --plugin no-only-tests --rule 'no-only-tests/no-only-tests: [error, { fix: true }]'",
+      "prettier --write"
+    ]
+  }
+}

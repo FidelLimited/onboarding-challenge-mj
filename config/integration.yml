@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  ServiceParam:
+    Description: Service Name
+    Type: String
+    MinLength: 2
+  StageParam:
+    Description: Stage to append to CloudFormation stack
+    Type: String
+    MinLength: 1
+    Default: 'dev'
+    AllowedPattern: ^dev|prod$
+
+Resources:
+  ExampleTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub ${ServiceParam}-${StageParam}-fidel-example
+
+Outputs:
+  ExampleTableName:
+    Description: External Table Name
+    Value: !Sub ${ServiceParam}-${StageParam}-fidel-example

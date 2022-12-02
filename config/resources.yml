@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Resources for service-starter
+
+Parameters:
+  ServiceParam:
+    Description: Service Name
+    Type: String
+    MinLength: 2
+  StageParam:
+    Description: Stage to append to CloudFormation stack
+    Type: String
+    MinLength: 1
+    Default: 'dev'
+    AllowedPattern: ^dev|prod$
+  AlertTopicARNParam:
+    Description: SNS Alert Topic ARN (use OWN to create a new topic)
+    Type: String
+    AllowedPattern: ^arn:aws:sns:[a-z]{2}-[a-z]+-\d{1}:\d{12}:[a-zA-Z0-9-_]+$|^OWN$
+    Default: 'OWN'
+  DefaultAlertEmailParam:
+    Description: Default email subscription to the SNS alert topic (prod only)
+    Type: String
+    Default: 'service-alerts@fidel.uk'
+    AllowedPattern: ^(\w+([.-]?\w+)*(\+\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+)$
+  # Add new parameters under below
+  ExampleParam:
+    Description: Hello World Comic Character
+    Type: String
+    Default: 'Batman'
+    NoEcho: true
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'Configuration'
+        Parameters:
+          - ServiceParam
+          - StageParam
+      # Add new parameter groups below
+      - Label:
+          default: 'SSM Key/Value'
+        Parameters:
+          - AlertTopicARNParam
+          - DefaultAlertEmailParam
+          - ExampleParam
+    ParameterLabels:
+      ServiceParam:
+        default: Service
+      StageParam:
+        default: Stage
+      # Add custom new parameter labels below
+      ExampleParam:
+        default: Name
+
+Conditions:
+  isProd: !Equals [!Ref StageParam, prod]
+  newAlertTopic: !Equals [!Ref AlertTopicARNParam, 'OWN']
+
+# Use syntax "!Sub ${ServiceParam}" for stage name and !Sub ${StageParam} across resources
+Resources:
+  alertTopicSNS:
+    Type: AWS::SNS::Topic
+    Condition: newAlertTopic
+    Properties:
+      DisplayName: !Sub ${ServiceParam}-${StageParam}-alert-topic
+      TopicName: !Sub ${ServiceParam}-${StageParam}-alert-topic
+  alertTopicSNSSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: isProd
+    Properties:
+      Endpoint: !Sub ${DefaultAlertEmailParam}
+      Protocol: email
+      TopicArn:
+        !If [newAlertTopic, !Ref alertTopicSNS, !Sub '${AlertTopicARNParam}']
+
+Outputs:
+  ServiceParam:
+    Description: Service Name
+    Value: !Sub ${ServiceParam}
+  StageParam:
+    Description: Stage
+    Value: !Sub ${StageParam}
+  # Add new outputs below
+  ExampleParam:
+    Description: Name
+    Value: !Sub ${ExampleParam}
+  alertTopicARN:
+    Description: Alert Topic ARN
+    Value: !If [newAlertTopic, !Ref alertTopicSNS, !Sub '${AlertTopicARNParam}']

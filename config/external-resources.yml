@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: External resources for service-starter
+
+Parameters:
+  ServiceParam:
+    Description: Service Name
+    Type: String
+    MinLength: 2
+  StageParam:
+    Description: Stage to append to CloudFormation stack
+    Type: String
+    MinLength: 1
+    Default: 'dev'
+    AllowedPattern: ^dev|prod$
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: 'Configuration'
+        Parameters:
+          - ServiceParam
+          - StageParam
+    ParameterLabels:
+      StageParam:
+        default: Stage
+
+Resources:
+  ExampleEventName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub ${ServiceParam}-${StageParam}-fidel-example-event-arn
+      Type: String
+      Value: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/example

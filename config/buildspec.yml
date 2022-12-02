@@ -1,0 +1,33 @@
+# AWS CodeBuild Specification
+
+version: 0.2
+env:
+  secrets-manager:
+    NPM_TOKEN: $NPM_SECRET_ARN
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 14
+    commands:
+      - echo Setting NPM Config
+      - npm config set @fidel.uk:registry https://registry.npmjs.org
+      - npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN
+      - echo ENV Variables
+      - env
+      - echo Installing NPM dependencies
+      - npm ci
+      - npm run test:coverage
+      - bash config/deploy-external-resources.sh
+      - bash config/deploy-resources.sh
+  build:
+    on-failure: ABORT
+    commands:
+      - echo Deploy "$SERVICE_NAME" to "$STAGE" stage to $AWS_REGION region
+      - npm run deploy -- -s $STAGE --region $AWS_REGION
+  post_build:
+    commands:
+      - bash config/deploy-monitoring.sh
+artifacts:
+  files:
+    - '**/*'

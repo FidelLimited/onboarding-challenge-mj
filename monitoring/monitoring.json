@@ -1,0 +1,33 @@
+{
+  "cloudwatch": [
+    {
+      "dashboardName": "general-metrics",
+      "resources": {
+        "apiGateway": [
+          {
+            "api": {
+              "routes": [
+                {
+                  "alarms": true,
+                  "methods": ["POST"],
+                  "path": "hello",
+                  "groups": ["platform"]
+                }
+              ]
+            }
+          }
+        ],
+        "lambda": [
+          {
+            "alarms": true,
+            "functionName": "get-hello-world",
+            "groups": ["platform"]
+          },
+          {
+            "functionName": "reply-goodbye"
+          }
+        ]
+      }
+    }
+  ]
+}
