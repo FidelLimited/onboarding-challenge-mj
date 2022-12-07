@@ -106,3 +106,13 @@ functions:
             statusCodes:
               404:
                 pattern: ''
+  getVerificationMethods:
+    name: ${self:custom.serviceNameWithStageSuffix}-get-verification-methods
+    description: 'Routes: Get Verification Methods'
+    handler: routes/get-verification-methods/index.handler
+    environment: ${self:custom.environment}
+    events:
+      - http:
+          method: get
+          path: ${file(../config/serverless.yml):custom.basePath.${self:provider.stage}}/verification-methods
+          cors: ${file(../config/serverless.yml):custom.cors}
